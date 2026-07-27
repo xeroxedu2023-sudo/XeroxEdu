@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Reading Mock Test Platform</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+body { background-color: #f1f5f9; color: #1e293b; }
+
+/* Creator Mode Styles */
+.creator-container { max-width: 800px; margin: 40px auto; padding: 24px; background: white; border-radius: 8px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
+.creator-container h1 { margin-bottom: 20px; color: #0f172a; }
+.form-group { margin-bottom: 20px; }
+label { display: block; font-weight: 600; margin-bottom: 8px; }
+input[type="text"], textarea { width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 14px; }
+textarea { height: 120px; resize: vertical; }
+
+.q-card { background: #f8fafc; border: 1px solid #e2e8f0; padding: 16px; border-radius: 6px; margin-bottom: 16px; }
+.opt-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 10px 0; }
+
+.btn { padding: 10px 20px; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; transition: background 0.2s; }
+.btn-primary { background: #2563eb; color: white; }
+.btn-primary:hover { background: #1d4ed8; }
+.btn-secondary { background: #64748b; color: white; margin-bottom: 20px; }
+
+#share-link-box { display: none; margin-top: 20px; padding: 16px; background: #e0f2fe; border: 1px solid #bae6fd; border-radius: 6px; }
+#share-url { width: 100%; margin-top: 8px; font-weight: bold; background: white; cursor: pointer; }
+
+/* Test Mode Split Layout Styles */
+#test-view { display: none; height: 100vh; flex-direction: column; }
+header { height: 60px; background-color: #0f172a; color: #ffffff; display: flex; justify-content: space-between; align-items: center; padding: 0 24px; }
+#timer { font-size: 1.1rem; font-weight: bold; background-color: #ef4444; padding: 6px 14px; border-radius: 4px; }
+
+.test-body { display: flex; flex: 1; overflow: hidden; }
+.passage-panel, .question-panel { flex: 1; padding: 24px; overflow-y: auto; }
+.passage-panel { border-right: 2px solid #e2e8f0; background-color: #ffffff; line-height: 1.7; }
+.question-panel { background-color: #f8fafc; }
+
+.test-q-block { background: white; padding: 16px; border: 1px solid #cbd5e1; border-radius: 6px; margin-bottom: 16px; }
+.test-q-block p { font-weight: 600; margin-bottom: 12px; }
+.test-q-block label { display: block; font-weight: normal; margin-bottom: 6px; cursor: pointer; }
+
+#result-box { display: none; margin-top: 20px; padding: 16px; background-color: #dcfce7; border: 1px solid #86efac; border-radius: 6px; color: #166534; font-weight: bold; }
+</style>
+</head>
+<body>
+
+<!-- ================= CREATOR MODE ================= -->
+<div id="creator-view" class="creator-container">
+<h1>Create a Shareable Reading Test</h1>
+
+<div class="form-group">
+<label for="p-title">Passage Title</label>
+<input type="text" id="p-title" placeholder="e.g., Passage 1: The Solar System">
+</div>
+
+<div class="form-group">
+<label for="p-text">Passage Text</label>
+<textarea id="p-text" placeholder="Paste your reading passage here..."></textarea>
+</div>
+
+<h3>Questions</h3>
+<div id="questions-list"></div>
+
+<button class="btn btn-secondary" onclick="addQuestionField()">+ Add Question</button>
+<br>
+<button class="btn btn-primary" onclick="generateShareLink()">Generate Shareable Link</button>
+
+<div id="share-link-box">
+<strong>Your test is ready! Share this link:</strong>
+<input type="text" id="share-url" readonly onclick="this.select(); document.execCommand('copy'); alert('Link copied to clipboard!');">
+</div>
+</div>
+
+
+<!-- ================= TEST TAKING MODE ================= -->
+<div id="test-view">
+<header>
+<h2 id="display-title">Reading Test</h2>
+<div id="timer">20:00</div>
+</header>
+
+<div class="test-body">
+<div class="passage-panel">
+<h2 id="passage-heading" style="margin-bottom: 16px;"></h2>
+<div id="passage-content"></div>
+</div>
+
+<div class="question-panel">
+<form id="test-form">
+<div id="test-questions-container"></div>
+<button type="button" class="btn btn-primary" style="width: 100%;" onclick="submitTest()">Submit Test</button>
+</form>
+<div id="result-box"></div>
+</div>
+</div>
+</div>
+
+<script>
+let qCount = 0;
+let currentTestData = null;
+let timerInterval = null;
+
+// Initialize Creator Fields
+window.onload = function() {
+const urlParams = new URLSearchParams(window.location.search);
+const testParam = urlParams.get('test');
+
+if (testParam) {
+// Mode 2: Test Taking Mode (Link detected)
+document.getElementById('creator-view').style.display = 'none';
+document.getElementById('test-view').style.display = 'flex';
+loadTestFromURL(testParam);
+} else {
+// Mode 1: Creator Mode
+addQuestionField();
+}
+};
+
+// Add Question Input Fields in Creator Mode
+function addQuestionField() {
+qCount++;
+const div = document.createElement('div');
+div.className = 'q-card';
+div.id = `q-card-${qCount}`;
+div.innerHTML = `
+<label>Question ${qCount}</label>
+<input type="text" class="q-txt" placeholder="Enter question text" required style="margin-bottom:10px;">
+<div class="opt-grid">
+<input type="text" class="opt-a" placeholder="Option A" required>
+<input type="text" class="opt-b" placeholder="Option B" required>
+<input type="text" class="opt-c" placeholder="Option C" required>
+<input type="text" class="opt-d" placeholder="Option D" required>
+</div>
+<label>Correct Answer:</label>
+<select class="correct-ans">
+<option value="A">Option A</option>
+<option value="B">Option B</option>
+<option value="C">Option C</option>
+<option value="D">Option D</option>
+</select>
+`;
+document.getElementById('questions-list').appendChild(div);
+}
+
+// Encode Creator Input into standard Base64 URL parameter
+function generateShareLink() {
+const title = document.getElementById('p-title').value.trim();
+const text = document.getElementById('p-text').value.trim();
+
+if (!title || !text) {
+alert("Please fill in both the passage title and content.");
+return;
+}
+
+const questions = [];
+const qCards = document.querySelectorAll('.q-card');
+
+qCards.forEach((card, idx) => {
+questions.push({
+id: `q${idx + 1}`,
+q: card.querySelector('.q-txt').value,
+opts: [
+card.querySelector('.opt-a').value,
+card.querySelector('.opt-b').value,
+card.querySelector('.opt-c').value,
+card.querySelector('.opt-d').value
+],
+ans: card.querySelector('.correct-ans').value
+});
+});
+
+const testData = { title, text, questions };
+
+// Convert JSON object to URL-safe Base64 String
+const jsonString = JSON.stringify(testData);
+const encodedData = encodeURIComponent(btoa(unescape(encodeURIComponent(jsonString))));
+
+const shareUrl = `${window.location.origin}${window.location.pathname}?test=${encodedData}`;
+
+document.getElementById('share-url').value = shareUrl;
+document.getElementById('share-link-box').style.display = 'block';
+}
+
+// Load and Render Test from URL Parameter
+function loadTestFromURL(encodedData) {
+try {
+const jsonString = decodeURIComponent(escape(atob(decodeURIComponent(encodedData))));
+currentTestData = JSON.parse(jsonString);
+
+document.getElementById('display-title').textContent = currentTestData.title;
+document.getElementById('passage-heading').textContent = currentTestData.title;
+document.getElementById('passage-content').innerHTML = `<p>${currentTestData.text.replace(/\n/g, '<br><br>')}</p>`;
+
+const qContainer = document.getElementById('test-questions-container');
+qContainer.innerHTML = '';
+
+currentTestData.questions.forEach((q, idx) => {
+const block = document.createElement('div');
+block.className = 'test-q-block';
+block.innerHTML = `
+<p>${idx + 1}. ${q.q}</p>
+<label><input type="radio" name="${q.id}" value="A"> A) ${q.opts[0]}</label>
+<label><input type="radio" name="${q.id}" value="B"> B) ${q.opts[1]}</label>
+<label><input type="radio" name="${q.id}" value="C"> C) ${q.opts[2]}</label>
+<label><input type="radio" name="${q.id}" value="D"> D) ${q.opts[3]}</label>
+`;
+qContainer.appendChild(block);
+});
+
+startTimer(20 * 60); // 20 minute default countdown
+} catch (e) {
+alert("Invalid or corrupted test link.");
+}
+}
+
+// Timer Logic
+function startTimer(secondsLeft) {
+const timerEl = document.getElementById('timer');
+timerInterval = setInterval(() => {
+let mins = Math.floor(secondsLeft / 60);
+let secs = secondsLeft % 60;
+timerEl.textContent = `${mins < 10 ? '0' : ''}${mins}:${secs < 10 ? '0' : ''}${secs}`;
+
+if (secondsLeft <= 0) {
+clearInterval(timerInterval);
+alert("Time's up! Automatically submitting test.");
+submitTest();
+}
+secondsLeft--;
+}, 1000);
+}
+
+// Evaluation Logic
+function submitTest() {
+clearInterval(timerInterval);
+let score = 0;
+const total = currentTestData.questions.length;
+
+currentTestData.questions.forEach(q => {
+const selected = document.querySelector(`input[name="${q.id}"]:checked`);
+const correctIndex = ['A', 'B', 'C', 'D'].indexOf(q.ans);
+
+if (selected && selected.value === q.ans) {
+score++;
+}
+});
+
+const resultBox = document.getElementById('result-box');
+resultBox.style.display = 'block';
+resultBox.innerHTML = `
+<h3>Test Completed!</h3>
+<p style="margin-top:8px;">Your Score: <strong>${score} / ${total}</strong> (${Math.round((score/total)*100)}%)</p>
+`;
+}
+</script>
+</body>
+</html>
