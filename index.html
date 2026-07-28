@@ -118,7 +118,8 @@
   </div>
 
   <script>
-    const JSONBIN_MASTER_KEY = "$2a$10$2EI9sA6dGswtflh4vof3nOddKUdQ3xKv/SSAJVPxcB6gm9UduFtUu.";
+    // Make sure to replace this with your personal JSONBin master key if needed!
+    const JSONBIN_MASTER_KEY = "$2a$10$2E19sA6dSwtflh4vof3nOddKUdQ3xKv/SSAJVPxcB6gv9UduFtuU.";
 
     let qCount = 0;
     let currentTestData = null;
@@ -203,8 +204,8 @@
 
         <!-- MATCHING TYPES -->
         <div id="match-box-${qCount}" style="display:none;">
-          <input type="text" class="match-opts" placeholder="List choices separated by commas (e.g., Paragraph A, Paragraph B, Paragraph C OR i, ii, iii, iv)">
-          <input type="text" class="correct-match" placeholder="Exact correct choice for this question">
+          <input type="text" class="match-opts" placeholder="List choices separated by commas (e.g., Paragraph A, Paragraph B, Paragraph C)">
+          <input type="text" class="correct-match" placeholder="Exact correct choice for this question (e.g., Paragraph D)">
         </div>
       `;
       document.getElementById('questions-list').appendChild(div);
@@ -218,7 +219,7 @@
       document.getElementById(`fill-box-${qId}`).style.display = (val === 'fill' || val === 'short') ? 'block' : 'none';
       document.getElementById(`mcq-box-${qId}`).style.display = (val === 'mcq') ? 'block' : 'none';
       
-      const isMatch = (val === 'm-headings' || val === 'm-info' || val === 'm-features' || val === 'm-endings');
+      const isMatch = (val.startsWith('m-'));
       document.getElementById(`match-box-${qId}`).style.display = isMatch ? 'block' : 'none';
     }
 
@@ -240,21 +241,29 @@
 
       qCards.forEach((card, idx) => {
         const type = card.querySelector('.q-type').value;
+        const qText = card.querySelector('.q-txt').value.trim();
+
         if (type === 'tfng') {
-          questions.push({ id: `q${idx + 1}`, type, q: card.querySelector('.q-txt').value, ans: card.querySelector('.correct-tfng').value });
+          const ans = card.querySelector('.correct-tfng').value;
+          questions.push({ id: `q${idx + 1}`, type, q: qText, ans });
         } else if (type === 'ynng') {
-          questions.push({ id: `q${idx + 1}`, type, q: card.querySelector('.q-txt').value, ans: card.querySelector('.correct-ynng').value });
+          const ans = card.querySelector('.correct-ynng').value;
+          questions.push({ id: `q${idx + 1}`, type, q: qText, ans });
         } else if (type === 'fill' || type === 'short') {
-          questions.push({ id: `q${idx + 1}`, type, q: card.querySelector('.q-txt').value, ans: card.querySelector('.correct-blank').value.trim().toLowerCase() });
+          const ans = card.querySelector('.correct-blank').value.trim().toLowerCase();
+          questions.push({ id: `q${idx + 1}`, type, q: qText, ans });
         } else if (type === 'mcq') {
-          questions.push({
-            id: `q${idx + 1}`, type, q: card.querySelector('.q-txt').value,
-            opts: [card.querySelector('.opt-a').value, card.querySelector('.opt-b').value, card.querySelector('.opt-c').value, card.querySelector('.opt-d').value],
-            ans: card.querySelector('.correct-mcq').value
-          });
-        } else {
-          const rawOpts = card.querySelector('.match-opts').value.split(',').map(s => s.trim());
-          questions.push({ id: `q${idx + 1}`, type, q: card.querySelector('.q-txt').value, opts: rawOpts, ans: card.querySelector('.correct-match').value.trim() });
+          const optA = card.querySelector('.opt-a').value.trim();
+          const optB = card.querySelector('.opt-b').value.trim();
+          const optC = card.querySelector('.opt-c').value.trim();
+          const optD = card.querySelector('.opt-d').value.trim();
+          const ans = card.querySelector('.correct-mcq').value;
+          questions.push({ id: `q${idx + 1}`, type, q: qText, opts: [optA, optB, optC, optD], ans });
+        } else if (type.startsWith('m-')) {
+          const rawOptsInput = card.querySelector('.match-opts').value;
+          const rawOpts = rawOptsInput ? rawOptsInput.split(',').map(s => s.trim()) : [];
+          const ans = card.querySelector('.correct-match').value.trim();
+          questions.push({ id: `q${idx + 1}`, type, q: qText, opts: rawOpts, ans });
         }
       });
 
@@ -276,7 +285,7 @@
         document.getElementById('share-url').value = shareUrl;
         document.getElementById('share-link-box').style.display = 'block';
       } catch (err) {
-        alert("Failed to save test.");
+        alert("Failed to save test. Please ensure your JSONBin Master Key on line 121 is correct.");
         console.error(err);
       } finally {
         btn.disabled = false;
@@ -340,14 +349,16 @@
           } else if (q.type === 'mcq') {
             block.innerHTML = `
               <p>${idx + 1}. ${q.q}</p>
-              <label><input type="radio" name="${q.id}" value="A"> A) ${q.opts[0]}</label>
-              <label><input type="radio" name="${q.id}" value="B"> B) ${q.opts[1]}</label>
-              <label><input type="radio" name="${q.id}" value="C"> C) ${q.opts[2]}</label>
-              <label><input type="radio" name="${q.id}" value="D"> D) ${q.opts[3]}</label>
+              <label><input type="radio" name="${q.id}" value="A"> A) ${q.opts[0] || ''}</label>
+              <label><input type="radio" name="${q.id}" value="B"> B) ${q.opts[1] || ''}</label>
+              <label><input type="radio" name="${q.id}" value="C"> C) ${q.opts[2] || ''}</label>
+              <label><input type="radio" name="${q.id}" value="D"> D) ${q.opts[3] || ''}</label>
             `;
           } else {
             let selectHtml = `<select name="${q.id}" class="blank-input"><option value="">-- Select Option --</option>`;
-            q.opts.forEach(opt => { selectHtml += `<option value="${opt}">${opt}</option>`; });
+            if (q.opts) {
+              q.opts.forEach(opt => { selectHtml += `<option value="${opt}">${opt}</option>`; });
+            }
             selectHtml += `</select>`;
             block.innerHTML = `<p>${idx + 1}. ${q.q}</p>${selectHtml}`;
           }
