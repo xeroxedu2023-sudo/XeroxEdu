@@ -45,11 +45,6 @@
     .hl-blue { background-color: #bfdbfe; }
     .hl-pink { background-color: #fbcfe8; }
 
-    .hl-active-yellow { background-color: #fef08a; cursor: pointer; }
-    .hl-active-green { background-color: #bbf7d0; cursor: pointer; }
-    .hl-active-blue { background-color: #bfdbfe; cursor: pointer; }
-    .hl-active-pink { background-color: #fbcfe8; cursor: pointer; }
-
     .test-q-block { background: white; padding: 16px; border: 1px solid #cbd5e1; border-radius: 6px; margin-bottom: 16px; }
     .test-q-block p { font-weight: 600; margin-bottom: 12px; }
     .test-q-block label { display: block; font-weight: normal; margin-bottom: 6px; cursor: pointer; }
@@ -123,7 +118,6 @@
   </div>
 
   <script>
-    // JSONBin Key on line 106
     const JSONBIN_MASTER_KEY = "$2a$10$2E19sA6dSwtflh4vof3nOddKUdQ3xKv/SSAJVPxcB6gv9UduFtuU.";
 
     let qCount = 0;
@@ -154,13 +148,18 @@
         <select class="q-type" onchange="toggleQType(this, ${qCount})">
           <option value="tfng">True / False / Not Given</option>
           <option value="ynng">Yes / No / Not Given</option>
-          <option value="mcq">Multiple Choice (Single Option)</option>
-          <option value="fill">Fill in the Blank / Short Answer</option>
-          <option value="match">Matching Headings / Features</option>
+          <option value="mcq">Multiple Choice</option>
+          <option value="fill">Fill in the Blank</option>
+          <option value="short">Short Answer Question</option>
+          <option value="m-headings">Matching Headings</option>
+          <option value="m-info">Matching Information</option>
+          <option value="m-features">Matching Features</option>
+          <option value="m-endings">Matching Sentence Endings</option>
         </select>
         
         <input type="text" class="q-txt" placeholder="Enter question statement or prompt" required>
         
+        <!-- TFNG -->
         <div id="tfng-box-${qCount}">
           <label style="font-weight: normal; font-size: 13px;">Correct Answer:</label>
           <select class="correct-tfng">
@@ -170,6 +169,7 @@
           </select>
         </div>
 
+        <!-- YNNG -->
         <div id="ynng-box-${qCount}" style="display:none;">
           <label style="font-weight: normal; font-size: 13px;">Correct Answer:</label>
           <select class="correct-ynng">
@@ -179,10 +179,12 @@
           </select>
         </div>
 
+        <!-- FILL / SHORT ANSWER -->
         <div id="fill-box-${qCount}" style="display:none;">
-          <input type="text" class="correct-blank" placeholder="Exact correct answer phrase/word">
+          <input type="text" class="correct-blank" placeholder="Exact correct word or short answer phrase">
         </div>
 
+        <!-- MCQ -->
         <div id="mcq-box-${qCount}" style="display:none;">
           <div class="opt-grid">
             <input type="text" class="opt-a" placeholder="Option A">
@@ -199,32 +201,25 @@
           </select>
         </div>
 
+        <!-- MATCHING TYPES -->
         <div id="match-box-${qCount}" style="display:none;">
-          <input type="text" class="match-opts" placeholder="Options separated by commas (e.g., Paragraph A, Paragraph B, Paragraph C)">
-          <input type="text" class="correct-match" placeholder="Exact correct option matching key">
+          <input type="text" class="match-opts" placeholder="List choices separated by commas (e.g., Paragraph A, Paragraph B, Paragraph C OR i, ii, iii, iv)">
+          <input type="text" class="correct-match" placeholder="Exact correct choice for this question">
         </div>
       `;
       document.getElementById('questions-list').appendChild(div);
     }
 
     function toggleQType(selectEl, qId) {
-      const tfngBox = document.getElementById(`tfng-box-${qId}`);
-      const ynngBox = document.getElementById(`ynng-box-${qId}`);
-      const fillBox = document.getElementById(`fill-box-${qId}`);
-      const mcqBox = document.getElementById(`mcq-box-${qId}`);
-      const matchBox = document.getElementById(`match-box-${qId}`);
+      const val = selectEl.value;
       
-      tfngBox.style.display = 'none';
-      ynngBox.style.display = 'none';
-      fillBox.style.display = 'none';
-      mcqBox.style.display = 'none';
-      matchBox.style.display = 'none';
-
-      if (selectEl.value === 'tfng') tfngBox.style.display = 'block';
-      else if (selectEl.value === 'ynng') ynngBox.style.display = 'block';
-      else if (selectEl.value === 'fill') fillBox.style.display = 'block';
-      else if (selectEl.value === 'mcq') mcqBox.style.display = 'block';
-      else if (selectEl.value === 'match') matchBox.style.display = 'block';
+      document.getElementById(`tfng-box-${qId}`).style.display = (val === 'tfng') ? 'block' : 'none';
+      document.getElementById(`ynng-box-${qId}`).style.display = (val === 'ynng') ? 'block' : 'none';
+      document.getElementById(`fill-box-${qId}`).style.display = (val === 'fill' || val === 'short') ? 'block' : 'none';
+      document.getElementById(`mcq-box-${qId}`).style.display = (val === 'mcq') ? 'block' : 'none';
+      
+      const isMatch = (val === 'm-headings' || val === 'm-info' || val === 'm-features' || val === 'm-endings');
+      document.getElementById(`match-box-${qId}`).style.display = isMatch ? 'block' : 'none';
     }
 
     async function generateShareLink() {
@@ -246,20 +241,20 @@
       qCards.forEach((card, idx) => {
         const type = card.querySelector('.q-type').value;
         if (type === 'tfng') {
-          questions.push({ id: `q${idx + 1}`, type: 'tfng', q: card.querySelector('.q-txt').value, ans: card.querySelector('.correct-tfng').value });
+          questions.push({ id: `q${idx + 1}`, type, q: card.querySelector('.q-txt').value, ans: card.querySelector('.correct-tfng').value });
         } else if (type === 'ynng') {
-          questions.push({ id: `q${idx + 1}`, type: 'ynng', q: card.querySelector('.q-txt').value, ans: card.querySelector('.correct-ynng').value });
-        } else if (type === 'fill') {
-          questions.push({ id: `q${idx + 1}`, type: 'fill', q: card.querySelector('.q-txt').value, ans: card.querySelector('.correct-blank').value.trim().toLowerCase() });
+          questions.push({ id: `q${idx + 1}`, type, q: card.querySelector('.q-txt').value, ans: card.querySelector('.correct-ynng').value });
+        } else if (type === 'fill' || type === 'short') {
+          questions.push({ id: `q${idx + 1}`, type, q: card.querySelector('.q-txt').value, ans: card.querySelector('.correct-blank').value.trim().toLowerCase() });
         } else if (type === 'mcq') {
           questions.push({
-            id: `q${idx + 1}`, type: 'mcq', q: card.querySelector('.q-txt').value,
+            id: `q${idx + 1}`, type, q: card.querySelector('.q-txt').value,
             opts: [card.querySelector('.opt-a').value, card.querySelector('.opt-b').value, card.querySelector('.opt-c').value, card.querySelector('.opt-d').value],
             ans: card.querySelector('.correct-mcq').value
           });
-        } else if (type === 'match') {
+        } else {
           const rawOpts = card.querySelector('.match-opts').value.split(',').map(s => s.trim());
-          questions.push({ id: `q${idx + 1}`, type: 'match', q: card.querySelector('.q-txt').value, opts: rawOpts, ans: card.querySelector('.correct-match').value.trim() });
+          questions.push({ id: `q${idx + 1}`, type, q: card.querySelector('.q-txt').value, opts: rawOpts, ans: card.querySelector('.correct-match').value.trim() });
         }
       });
 
@@ -281,7 +276,7 @@
         document.getElementById('share-url').value = shareUrl;
         document.getElementById('share-link-box').style.display = 'block';
       } catch (err) {
-        alert("Failed to save test. Please check your JSONBin Master Key.");
+        alert("Failed to save test.");
         console.error(err);
       } finally {
         btn.disabled = false;
@@ -337,7 +332,7 @@
               <label><input type="radio" name="${q.id}" value="NO"> NO</label>
               <label><input type="radio" name="${q.id}" value="NOT GIVEN"> NOT GIVEN</label>
             `;
-          } else if (q.type === 'fill') {
+          } else if (q.type === 'fill' || q.type === 'short') {
             block.innerHTML = `
               <p>${idx + 1}. ${q.q}</p>
               <input type="text" name="${q.id}" class="blank-input" placeholder="Type your answer here">
@@ -350,8 +345,8 @@
               <label><input type="radio" name="${q.id}" value="C"> C) ${q.opts[2]}</label>
               <label><input type="radio" name="${q.id}" value="D"> D) ${q.opts[3]}</label>
             `;
-          } else if (q.type === 'match') {
-            let selectHtml = `<select name="${q.id}" class="blank-input"><option value="">-- Select Matching Option --</option>`;
+          } else {
+            let selectHtml = `<select name="${q.id}" class="blank-input"><option value="">-- Select Option --</option>`;
             q.opts.forEach(opt => { selectHtml += `<option value="${opt}">${opt}</option>`; });
             selectHtml += `</select>`;
             block.innerHTML = `<p>${idx + 1}. ${q.q}</p>${selectHtml}`;
@@ -366,7 +361,6 @@
       }
     }
 
-    /* Text Highlighting Functionality */
     function applyHighlight(color) {
       const selection = window.getSelection();
       if (!selection.rangeCount || selection.isCollapsed) return;
@@ -415,10 +409,10 @@
         if (q.type === 'tfng' || q.type === 'ynng' || q.type === 'mcq') {
           const selected = document.querySelector(`input[name="${q.id}"]:checked`);
           if (selected && selected.value === q.ans) score++;
-        } else if (q.type === 'fill') {
+        } else if (q.type === 'fill' || q.type === 'short') {
           const userInput = document.querySelector(`input[name="${q.id}"]`).value.trim().toLowerCase();
           if (userInput === q.ans) score++;
-        } else if (q.type === 'match') {
+        } else {
           const selected = document.querySelector(`select[name="${q.id}"]`).value.trim();
           if (selected.toLowerCase() === q.ans.toLowerCase()) score++;
         }
